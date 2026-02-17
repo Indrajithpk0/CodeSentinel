@@ -1,0 +1,1083 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>SecureCheck — AI Code Security Analyzer</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #050810;
+    --surface: #0b0f1a;
+    --surface2: #111827;
+    --border: #1e2a3a;
+    --accent: #00f5c4;
+    --accent2: #0077ff;
+    --danger: #ff3d5a;
+    --warn: #ffb347;
+    --safe: #00f5c4;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --mono: 'Space Mono', monospace;
+    --sans: 'Syne', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── GRID BG ── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,245,196,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,245,196,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── GLOW ORBS ── */
+  .orb {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(120px);
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.15;
+  }
+  .orb1 { width: 600px; height: 600px; background: var(--accent); top: -200px; right: -200px; }
+  .orb2 { width: 500px; height: 500px; background: var(--accent2); bottom: -150px; left: -150px; }
+
+  /* ── LAYOUT ── */
+  .wrap { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+
+  /* ── HEADER ── */
+  header {
+    padding: 32px 0 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .logo-icon {
+    width: 40px; height: 40px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+
+  .logo-text {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+  }
+
+  .logo-text span { color: var(--accent); }
+
+  .badge {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    border: 1px solid rgba(0,245,196,0.3);
+    padding: 4px 10px;
+    border-radius: 20px;
+    background: rgba(0,245,196,0.05);
+    letter-spacing: 1px;
+  }
+
+  /* ── HERO ── */
+  .hero {
+    padding: 70px 0 50px;
+    text-align: center;
+  }
+
+  .hero-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 24px;
+    padding: 6px 16px;
+    border: 1px solid rgba(0,245,196,0.2);
+    border-radius: 20px;
+    background: rgba(0,245,196,0.04);
+  }
+
+  .hero-tag::before {
+    content: '';
+    width: 6px; height: 6px;
+    background: var(--accent);
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.8); }
+  }
+
+  .hero h1 {
+    font-size: clamp(36px, 6vw, 68px);
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -2px;
+    margin-bottom: 20px;
+  }
+
+  .hero h1 .line2 {
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .hero p {
+    font-size: 17px;
+    color: var(--muted);
+    max-width: 540px;
+    margin: 0 auto 40px;
+    line-height: 1.7;
+    font-weight: 400;
+  }
+
+  /* ── STATS ROW ── */
+  .stats {
+    display: flex;
+    justify-content: center;
+    gap: 40px;
+    margin-bottom: 60px;
+    flex-wrap: wrap;
+  }
+
+  .stat {
+    text-align: center;
+  }
+
+  .stat-num {
+    font-family: var(--mono);
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--accent);
+    display: block;
+  }
+
+  .stat-label {
+    font-size: 12px;
+    color: var(--muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  /* ── MAIN CARD ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    overflow: hidden;
+    margin-bottom: 32px;
+    position: relative;
+  }
+
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2), transparent);
+  }
+
+  .card-header {
+    padding: 20px 28px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(255,255,255,0.02);
+  }
+
+  .card-title {
+    font-size: 13px;
+    font-family: var(--mono);
+    color: var(--muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .card-title .dot {
+    width: 8px; height: 8px;
+    background: var(--accent);
+    border-radius: 50%;
+  }
+
+  /* ── LANG SELECTOR ── */
+  .lang-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .lang-btn {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 5px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.5px;
+  }
+
+  .lang-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .lang-btn.active {
+    background: rgba(0,245,196,0.1);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  /* ── CODE EDITOR ── */
+  .editor-wrap {
+    position: relative;
+  }
+
+  .line-nums {
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 48px;
+    padding: 20px 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    border-right: 1px solid var(--border);
+    background: rgba(0,0,0,0.2);
+    pointer-events: none;
+    overflow: hidden;
+  }
+
+  .line-num {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--border);
+    line-height: 24px;
+    min-height: 24px;
+    width: 100%;
+    text-align: center;
+  }
+
+  textarea#code {
+    width: 100%;
+    min-height: 280px;
+    padding: 20px 20px 20px 68px;
+    background: transparent;
+    border: none;
+    outline: none;
+    resize: vertical;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 24px;
+    color: var(--text);
+    tab-size: 2;
+    caret-color: var(--accent);
+  }
+
+  textarea#code::placeholder { color: var(--border); }
+
+  /* ── BOTTOM BAR ── */
+  .card-footer {
+    padding: 16px 28px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(0,0,0,0.2);
+    flex-wrap: gap;
+    gap: 12px;
+  }
+
+  .char-count {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  /* ── ANALYZE BUTTON ── */
+  .btn-analyze {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 32px;
+    background: linear-gradient(135deg, var(--accent), #00c49a);
+    color: #050810;
+    font-family: var(--sans);
+    font-size: 15px;
+    font-weight: 700;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.25s;
+    letter-spacing: 0.3px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn-analyze::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: white;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  .btn-analyze:hover::before { opacity: 0.1; }
+  .btn-analyze:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0,245,196,0.3); }
+  .btn-analyze:active { transform: translateY(0); }
+  .btn-analyze:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  .btn-icon { font-size: 18px; }
+
+  /* ── SCANNING ANIMATION ── */
+  .scanning {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    padding: 60px 28px;
+    gap: 24px;
+  }
+
+  .scanning.active { display: flex; }
+
+  .scan-ring {
+    width: 80px; height: 80px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .scan-text {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--accent);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .scan-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 300px;
+  }
+
+  .scan-step {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    opacity: 0;
+    transition: opacity 0.5s;
+  }
+
+  .scan-step.visible { opacity: 1; }
+  .scan-step .step-dot { width: 6px; height: 6px; background: var(--accent); border-radius: 50%; flex-shrink: 0; }
+
+  /* ── RESULTS ── */
+  #results { display: none; }
+  #results.active { display: block; }
+
+  /* ── SCORE CARD ── */
+  .score-card {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 32px;
+    padding: 32px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    margin-bottom: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .score-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at top left, rgba(0,245,196,0.05), transparent 60%);
+    pointer-events: none;
+  }
+
+  .score-circle {
+    width: 100px; height: 100px;
+    border-radius: 50%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border: 3px solid;
+    flex-shrink: 0;
+    position: relative;
+  }
+
+  .score-circle.safe { border-color: var(--safe); background: rgba(0,245,196,0.07); }
+  .score-circle.warn { border-color: var(--warn); background: rgba(255,179,71,0.07); }
+  .score-circle.danger { border-color: var(--danger); background: rgba(255,61,90,0.07); }
+
+  .score-num {
+    font-family: var(--mono);
+    font-size: 30px;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  .score-circle.safe .score-num { color: var(--safe); }
+  .score-circle.warn .score-num { color: var(--warn); }
+  .score-circle.danger .score-num { color: var(--danger); }
+
+  .score-label { font-size: 10px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-top: 4px; }
+
+  .score-info h3 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+  .score-info p { color: var(--muted); font-size: 14px; line-height: 1.6; }
+
+  .vuln-badges {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  .vuln-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 6px 14px;
+    border-radius: 8px;
+    border: 1px solid;
+  }
+
+  .vuln-badge.critical { border-color: rgba(255,61,90,0.4); color: var(--danger); background: rgba(255,61,90,0.08); }
+  .vuln-badge.high { border-color: rgba(255,100,60,0.4); color: #ff643c; background: rgba(255,100,60,0.08); }
+  .vuln-badge.medium { border-color: rgba(255,179,71,0.4); color: var(--warn); background: rgba(255,179,71,0.08); }
+  .vuln-badge.low { border-color: rgba(0,245,196,0.4); color: var(--safe); background: rgba(0,245,196,0.08); }
+
+  /* ── ISSUES LIST ── */
+  .section-title {
+    font-size: 13px;
+    font-family: var(--mono);
+    color: var(--muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .issue-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    margin-bottom: 16px;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+
+  .issue-card:hover { border-color: rgba(0,245,196,0.2); }
+
+  .issue-header {
+    padding: 16px 20px;
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .sev-pill {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 20px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .sev-pill.critical { background: rgba(255,61,90,0.15); color: var(--danger); border: 1px solid rgba(255,61,90,0.3); }
+  .sev-pill.high { background: rgba(255,100,60,0.15); color: #ff643c; border: 1px solid rgba(255,100,60,0.3); }
+  .sev-pill.medium { background: rgba(255,179,71,0.15); color: var(--warn); border: 1px solid rgba(255,179,71,0.3); }
+  .sev-pill.low { background: rgba(0,245,196,0.1); color: var(--safe); border: 1px solid rgba(0,245,196,0.25); }
+
+  .issue-title-wrap { flex: 1; }
+  .issue-title { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+  .issue-owasp { font-family: var(--mono); font-size: 11px; color: var(--accent2); }
+
+  .issue-toggle {
+    font-size: 18px;
+    color: var(--muted);
+    transition: transform 0.3s;
+    flex-shrink: 0;
+  }
+
+  .issue-card.open .issue-toggle { transform: rotate(180deg); }
+
+  .issue-body {
+    display: none;
+    padding: 0 20px 20px;
+    border-top: 1px solid var(--border);
+  }
+
+  .issue-card.open .issue-body { display: block; }
+
+  .issue-section { margin-top: 16px; }
+
+  .issue-section-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .issue-section-label .icon { font-size: 12px; }
+
+  .issue-desc {
+    font-size: 14px;
+    color: #94a3b8;
+    line-height: 1.7;
+  }
+
+  .code-block {
+    background: #070b14;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.8;
+    overflow-x: auto;
+    position: relative;
+  }
+
+  .code-block.vuln { border-left: 3px solid var(--danger); }
+  .code-block.fix { border-left: 3px solid var(--safe); }
+
+  .code-block .cb-label {
+    position: absolute;
+    top: 8px; right: 10px;
+    font-size: 9px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    opacity: 0.5;
+  }
+
+  .code-block.vuln .cb-label { color: var(--danger); }
+  .code-block.fix .cb-label { color: var(--safe); }
+
+  .fix-steps {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .fix-steps li {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 14px;
+    color: #94a3b8;
+    line-height: 1.6;
+  }
+
+  .fix-steps li::before {
+    content: '→';
+    color: var(--accent);
+    font-family: var(--mono);
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  /* ── SAFE BANNER ── */
+  .safe-banner {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 28px 32px;
+    background: rgba(0,245,196,0.05);
+    border: 1px solid rgba(0,245,196,0.2);
+    border-radius: 16px;
+    margin-bottom: 24px;
+  }
+
+  .safe-icon { font-size: 40px; }
+  .safe-banner h3 { font-size: 20px; font-weight: 700; color: var(--safe); margin-bottom: 4px; }
+  .safe-banner p { color: var(--muted); font-size: 14px; }
+
+  /* ── SUMMARY BOX ── */
+  .summary-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px;
+    margin-bottom: 32px;
+  }
+
+  .summary-box h4 {
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 12px;
+    color: var(--accent);
+    font-family: var(--mono);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .summary-box p {
+    font-size: 14px;
+    color: #94a3b8;
+    line-height: 1.8;
+  }
+
+  /* ── NEW SCAN BTN ── */
+  .btn-reset {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 24px;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    border-radius: 10px;
+    cursor: pointer;
+    font-family: var(--sans);
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.2s;
+    margin-bottom: 48px;
+  }
+
+  .btn-reset:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ── FOOTER ── */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 28px 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  footer p {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  footer span { color: var(--accent); }
+
+  /* ── OWASP TAG ── */
+  .owasp-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .owasp-tag {
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 2px 8px;
+    background: rgba(0,119,255,0.1);
+    border: 1px solid rgba(0,119,255,0.25);
+    border-radius: 4px;
+    color: var(--accent2);
+  }
+
+  /* ── ERROR ── */
+  .error-box {
+    display: none;
+    align-items: center;
+    gap: 16px;
+    padding: 20px 24px;
+    background: rgba(255,61,90,0.06);
+    border: 1px solid rgba(255,61,90,0.25);
+    border-radius: 12px;
+    margin-bottom: 24px;
+    font-size: 14px;
+    color: #ff8099;
+  }
+  .error-box.active { display: flex; }
+
+  @media (max-width: 680px) {
+    .score-card { grid-template-columns: 1fr; text-align: center; }
+    .vuln-badges { flex-direction: row; flex-wrap: wrap; justify-content: center; }
+    .hero h1 { letter-spacing: -1px; }
+    .stats { gap: 24px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="orb orb1"></div>
+<div class="orb orb2"></div>
+
+<div class="wrap">
+
+  <!-- HEADER -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">🛡️</div>
+      <div class="logo-text">Secure<span>Check</span></div>
+    </div>
+    <div class="badge">AI POWERED · v1.0</div>
+  </header>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-tag">Real-time Code Security Analysis</div>
+    <h1>
+      Your AI Code is<br/>
+      <span class="line2">Not Always Safe.</span>
+    </h1>
+    <p>Paste any code snippet and get an instant security audit — vulnerabilities, severity ratings, OWASP mapping, and exactly how to fix each issue.</p>
+    <div class="stats">
+      <div class="stat"><span class="stat-num">OWASP</span><span class="stat-label">Top 10 Mapped</span></div>
+      <div class="stat"><span class="stat-num">4</span><span class="stat-label">Severity Levels</span></div>
+      <div class="stat"><span class="stat-num">AI</span><span class="stat-label">Fix Suggestions</span></div>
+    </div>
+  </section>
+
+  <!-- INPUT CARD -->
+  <div id="inputSection">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title"><span class="dot"></span> Code Input</div>
+        <div class="lang-row" id="langRow">
+          <button class="lang-btn active" onclick="setLang(this,'Python')">Python</button>
+          <button class="lang-btn" onclick="setLang(this,'JavaScript')">JavaScript</button>
+          <button class="lang-btn" onclick="setLang(this,'PHP')">PHP</button>
+          <button class="lang-btn" onclick="setLang(this,'Java')">Java</button>
+          <button class="lang-btn" onclick="setLang(this,'SQL')">SQL</button>
+          <button class="lang-btn" onclick="setLang(this,'Other')">Other</button>
+        </div>
+      </div>
+
+      <div class="editor-wrap">
+        <div class="line-nums" id="lineNums"></div>
+        <textarea id="code" spellcheck="false"
+          placeholder="# Paste your code here...&#10;# Example: Python, JavaScript, PHP, Java, SQL, etc.&#10;&#10;import sqlite3&#10;def get_user(username):&#10;    conn = sqlite3.connect('users.db')&#10;    query = f&quot;SELECT * FROM users WHERE name = '{username}'&quot;&#10;    return conn.execute(query).fetchall()"
+          oninput="updateLines();updateCount()"></textarea>
+      </div>
+
+      <div class="card-footer">
+        <span class="char-count" id="charCount">0 characters · 0 lines</span>
+        <button class="btn-analyze" id="analyzeBtn" onclick="analyze()">
+          <span class="btn-icon">⚡</span> Analyze Security
+        </button>
+      </div>
+    </div>
+
+    <!-- SCANNING STATE -->
+    <div class="card scanning" id="scanning">
+      <div class="scan-ring"></div>
+      <div class="scan-text">Scanning Code...</div>
+      <div class="scan-steps" id="scanSteps">
+        <div class="scan-step"><span class="step-dot"></span>Parsing code structure</div>
+        <div class="scan-step"><span class="step-dot"></span>Checking for injection vulnerabilities</div>
+        <div class="scan-step"><span class="step-dot"></span>Analyzing authentication patterns</div>
+        <div class="scan-step"><span class="step-dot"></span>Mapping to OWASP Top 10</div>
+        <div class="scan-step"><span class="step-dot"></span>Generating fix recommendations</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ERROR -->
+  <div class="error-box" id="errorBox">⚠️ <span id="errorMsg"></span></div>
+
+  <!-- RESULTS -->
+  <div id="results">
+    <div id="scoreCardWrap"></div>
+    <div id="issuesWrap"></div>
+    <div id="summaryWrap"></div>
+    <button class="btn-reset" onclick="reset()">↩ Analyze Another Snippet</button>
+  </div>
+
+  <!-- FOOTER -->
+  <footer>
+    <p>SecureCheck — Built by <span>Indrajith P K</span> · Powered by Claude AI</p>
+    <p>Mapped to <span>OWASP Top 10</span> · For educational use</p>
+  </footer>
+
+</div>
+
+<script>
+let selectedLang = 'Python';
+
+function setLang(btn, lang) {
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  selectedLang = lang;
+}
+
+function updateLines() {
+  const ta = document.getElementById('code');
+  const lines = ta.value.split('\n');
+  const ln = document.getElementById('lineNums');
+  ln.innerHTML = lines.map((_, i) =>
+    `<div class="line-num">${i + 1}</div>`
+  ).join('');
+}
+
+function updateCount() {
+  const val = document.getElementById('code').value;
+  document.getElementById('charCount').textContent =
+    `${val.length} characters · ${val.split('\n').length} lines`;
+}
+
+function showError(msg) {
+  const eb = document.getElementById('errorBox');
+  document.getElementById('errorMsg').textContent = msg;
+  eb.classList.add('active');
+}
+
+function hideError() {
+  document.getElementById('errorBox').classList.remove('active');
+}
+
+function reset() {
+  document.getElementById('results').classList.remove('active');
+  document.getElementById('results').style.display = 'none';
+  document.getElementById('inputSection').style.display = 'block';
+  document.getElementById('code').value = '';
+  updateLines();
+  updateCount();
+  hideError();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+async function analyze() {
+  const code = document.getElementById('code').value.trim();
+  if (!code) { showError('Please paste some code before analyzing.'); return; }
+  hideError();
+
+  // UI: show scanning
+  document.getElementById('analyzeBtn').disabled = true;
+  document.getElementById('scanning').classList.add('active');
+
+  // Animate scan steps
+  const steps = document.querySelectorAll('.scan-step');
+  steps.forEach((s, i) => {
+    setTimeout(() => s.classList.add('visible'), i * 700);
+  });
+
+  const prompt = `You are a professional code security auditor. Analyze the following ${selectedLang} code for security vulnerabilities.
+
+Return ONLY a valid JSON object with this exact structure:
+{
+  "score": <integer 0-100, where 100 = perfectly safe>,
+  "verdict": "<one line summary>",
+  "summary": "<2-3 sentence overall security assessment>",
+  "vulnerabilities": [
+    {
+      "title": "<vulnerability name>",
+      "severity": "<critical|high|medium|low>",
+      "owasp": "<OWASP Top 10 category e.g. A03:2021 - Injection>",
+      "description": "<clear explanation of the vulnerability and why it is dangerous>",
+      "vulnerable_code": "<the specific vulnerable snippet from the code, max 3 lines>",
+      "fix_code": "<the corrected secure version of that snippet>",
+      "fix_steps": ["<step 1>", "<step 2>", "<step 3>"]
+    }
+  ]
+}
+
+If the code is safe with no issues, return an empty vulnerabilities array and score of 95-100.
+Do NOT include markdown, backticks, or any text outside the JSON.
+
+Code to analyze:
+\`\`\`${selectedLang}
+${code}
+\`\`\``;
+
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 1000,
+        messages: [{ role: "user", content: prompt }]
+      })
+    });
+
+    const data = await res.json();
+    const raw = data.content.map(c => c.text || '').join('');
+    const clean = raw.replace(/```json|```/g, '').trim();
+    const result = JSON.parse(clean);
+    renderResults(result);
+
+  } catch (err) {
+    document.getElementById('scanning').classList.remove('active');
+    document.getElementById('analyzeBtn').disabled = false;
+    steps.forEach(s => s.classList.remove('visible'));
+    showError('Analysis failed. Please try again. (' + err.message + ')');
+  }
+}
+
+function renderResults(data) {
+  // Hide scanning, show results
+  document.getElementById('scanning').classList.remove('active');
+  document.getElementById('inputSection').style.display = 'none';
+  document.getElementById('results').classList.add('active');
+  document.getElementById('results').style.display = 'block';
+
+  const score = data.score || 0;
+  const vulns = data.vulnerabilities || [];
+
+  // Score level
+  let level = score >= 80 ? 'safe' : score >= 50 ? 'warn' : 'danger';
+  let levelLabel = score >= 80 ? 'SECURE' : score >= 50 ? 'MODERATE RISK' : 'HIGH RISK';
+
+  // Count severities
+  const counts = { critical: 0, high: 0, medium: 0, low: 0 };
+  vulns.forEach(v => { if (counts[v.severity] !== undefined) counts[v.severity]++; });
+
+  // ── SCORE CARD ──
+  document.getElementById('scoreCardWrap').innerHTML = `
+    <div class="score-card">
+      <div class="score-circle ${level}">
+        <div class="score-num">${score}</div>
+        <div class="score-label">/ 100</div>
+      </div>
+      <div class="score-info">
+        <h3>${data.verdict || levelLabel}</h3>
+        <p>${data.summary || ''}</p>
+        <div class="owasp-tags" style="margin-top:12px">
+          ${vulns.map(v => `<span class="owasp-tag">${v.owasp}</span>`).join('')}
+        </div>
+      </div>
+      <div class="vuln-badges">
+        ${counts.critical > 0 ? `<div class="vuln-badge critical">🔴 ${counts.critical} Critical</div>` : ''}
+        ${counts.high > 0 ? `<div class="vuln-badge high">🟠 ${counts.high} High</div>` : ''}
+        ${counts.medium > 0 ? `<div class="vuln-badge medium">🟡 ${counts.medium} Medium</div>` : ''}
+        ${counts.low > 0 ? `<div class="vuln-badge low">🟢 ${counts.low} Low</div>` : ''}
+        ${vulns.length === 0 ? `<div class="vuln-badge low">✅ No Issues</div>` : ''}
+      </div>
+    </div>`;
+
+  // ── ISSUES ──
+  const issuesWrap = document.getElementById('issuesWrap');
+
+  if (vulns.length === 0) {
+    issuesWrap.innerHTML = `
+      <div class="safe-banner">
+        <div class="safe-icon">✅</div>
+        <div>
+          <h3>No Vulnerabilities Found</h3>
+          <p>This code passed all security checks. No critical issues were detected based on OWASP Top 10 analysis.</p>
+        </div>
+      </div>`;
+  } else {
+    issuesWrap.innerHTML = `<div class="section-title">Vulnerabilities Found (${vulns.length})</div>` +
+      vulns.map((v, i) => `
+        <div class="issue-card" id="issue${i}">
+          <div class="issue-header" onclick="toggleIssue(${i})">
+            <span class="sev-pill ${v.severity}">${v.severity}</span>
+            <div class="issue-title-wrap">
+              <div class="issue-title">${v.title}</div>
+              <div class="issue-owasp">${v.owasp}</div>
+            </div>
+            <span class="issue-toggle">⌄</span>
+          </div>
+          <div class="issue-body">
+            <div class="issue-section">
+              <div class="issue-section-label"><span class="icon">📋</span> Description</div>
+              <div class="issue-desc">${v.description}</div>
+            </div>
+            ${v.vulnerable_code ? `
+            <div class="issue-section">
+              <div class="issue-section-label"><span class="icon">⚠️</span> Vulnerable Code</div>
+              <div class="code-block vuln"><span class="cb-label">UNSAFE</span><pre>${escHtml(v.vulnerable_code)}</pre></div>
+            </div>` : ''}
+            ${v.fix_code ? `
+            <div class="issue-section">
+              <div class="issue-section-label"><span class="icon">✅</span> Secure Fix</div>
+              <div class="code-block fix"><span class="cb-label">SAFE</span><pre>${escHtml(v.fix_code)}</pre></div>
+            </div>` : ''}
+            ${v.fix_steps && v.fix_steps.length ? `
+            <div class="issue-section">
+              <div class="issue-section-label"><span class="icon">🔧</span> How to Fix</div>
+              <ul class="fix-steps">
+                ${v.fix_steps.map(s => `<li>${s}</li>`).join('')}
+              </ul>
+            </div>` : ''}
+          </div>
+        </div>`).join('');
+  }
+
+  // ── SUMMARY ──
+  document.getElementById('summaryWrap').innerHTML = `
+    <div class="summary-box">
+      <h4>📊 Security Assessment Summary</h4>
+      <p>${data.summary || 'Analysis complete.'}</p>
+    </div>`;
+
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function toggleIssue(i) {
+  document.getElementById('issue' + i).classList.toggle('open');
+}
+
+function escHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// Init line numbers
+updateLines();
+updateCount();
+</script>
+</body>
+</html>
